@@ -1188,6 +1188,7 @@ PACKAGE RULES:
 - For EDITS: You may use packages, specify them with <package> tags
 - NEVER install packages like @mendable/firecrawl-js unless explicitly requested
 
+
 Examples of SYNTAX ERRORS (NEVER DO THIS):
 ❌ className="px-4 py-2 bg-blue-600 hover:bg-blue-7...
 ❌ <button className="btn btn-primary btn-...
@@ -1218,6 +1219,8 @@ NEVER write partial code like:
 ALWAYS write complete code:
 <h1>Build and deploy on the AI Cloud.</h1>
 <p>Some text here with full content</p>  ✅ CORRECT
+
+DONT JUST GENERATE SVG, PUT IT ALSO IN A FILE AND THEN IMPORT IT.
 
 If you're running out of space, generate FEWER files but make them COMPLETE.
 It's better to have 3 complete files than 10 incomplete files.`

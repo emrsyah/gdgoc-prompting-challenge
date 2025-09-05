@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import CodeApplicationProgress, { type CodeApplicationState } from '@/components/CodeApplicationProgress';
 import { useQueryState } from 'nuqs';
 import Image from 'next/image';
+import { CardStorage } from '@/lib/card-storage';
 
 interface SandboxData {
     sandboxId: string;
@@ -651,11 +652,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
 
         setIsCapturingScreenshot(true);
         setLoadingStage('gathering');
+        setLoading(true);
         addChatMessage('🎯 Finishing challenge - capturing your creation...', 'system');
 
         try {
             // Step 1: Capture screenshot of the generated sandbox
-            const screenshotResponse = await fetch('/api/scrape-screenshot', {
+            const screenshotResponse = await fetch('/api/scrape-screenshot-v2', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: sandboxData.url })
@@ -703,6 +705,21 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             setSimilarityScore(similarityData.score);
             setChallengeCompleted(true);
 
+            // Save best score to local storage
+            if (selectedCardId && username) {
+                const faculty = searchParams.get('selectedFaculty');
+                if (faculty) {
+                    CardStorage.updateCardBestScore(
+                        parseInt(selectedCardId),
+                        {
+                            name: username,
+                            faculty: faculty,
+                            score: similarityData.score
+                        }
+                    );
+                }
+            }
+
             addChatMessage(`🎉 Challenge Complete! Your similarity score is: **${similarityData.score}/100**`, 'system');
 
             if (similarityData.score >= 90) {
@@ -721,6 +738,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         } finally {
             setIsCapturingScreenshot(false);
             setLoadingStage(null);
+            setLoading(false);
         }
     };
 
@@ -734,6 +752,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         }
 
         setPromptCount((prev) => prev - 1);
+        setLoading(true);
 
         if (!aiEnabled) {
             addChatMessage('AI is disabled. Please enable it first.', 'system');
@@ -1190,7 +1209,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                 {selectedFile ? (
                                     <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                                         <div className="bg-black border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-                                            <div className="px-4 py-2 bg-[#36322F] text-white flex items-center justify-between">
+                                            <div className="px-4 py-2 bg-orange-800 text-white flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     {getFileIcon(selectedFile)}
                                                     <span className="font-mono text-sm">{selectedFile}</span>
@@ -1278,7 +1297,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                             {/* Show current file being generated */}
                                             {generationProgress.currentFile && (
                                                 <div className="bg-black border-2 border-gray-400 rounded-lg overflow-hidden shadow-sm">
-                                                    <div className="px-4 py-2 bg-[#36322F] text-white flex items-center justify-between">
+                                                    <div className="px-4 py-2 bg-orange-800 text-white flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                                             <span className="font-mono text-sm">{generationProgress.currentFile.path}</span>
@@ -1318,7 +1337,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                             {/* Show completed files */}
                                             {generationProgress.files.map((file, idx) => (
                                                 <div key={idx} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                                                    <div className="px-4 py-2 bg-[#36322F] text-white flex items-center justify-between">
+                                                    <div className="px-4 py-2 bg-orange-800 text-white flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-green-500">✓</span>
                                                             <span className="font-mono text-sm">{file.path}</span>
@@ -1358,7 +1377,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                             {/* Show remaining raw stream if there's content after the last file */}
                                             {!generationProgress.currentFile && generationProgress.streamedCode.length > 0 && (
                                                 <div className="bg-black border border-gray-200 rounded-lg overflow-hidden">
-                                                    <div className="px-4 py-2 bg-[#36322F] text-white flex items-center justify-between">
+                                                    <div className="px-4 py-2 bg-orange-800 text-white flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                                                             <span className="font-mono text-sm">Processing...</span>
@@ -1535,7 +1554,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             ? 'bg-green-600'
                             : promptCount === 0
                                 ? 'bg-orange-600'
-                                : 'bg-[#36322F]'
+                                : 'bg-orange-800'
                     }`}>
                         {challengeCompleted
                             ? `Score: ${similarityScore || 0}/100`
@@ -1556,7 +1575,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </Button> */}
-                    <div className="inline-flex font-pixelify items-center gap-2 bg-[#36322F] text-white px-3 py-1.5 rounded-[10px] text-sm font-medium [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)]">
+                    <div className="inline-flex font-pixelify items-center gap-2 bg-orange-800 text-white px-3 py-1.5 rounded-[10px] text-sm font-medium [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)]">
                         <span id="status-text">{status.text}</span>
                         <div className={`w-2 h-2 rounded-full ${status.active ? 'bg-green-500' : 'bg-gray-500'}`} />
                     </div>
@@ -1571,12 +1590,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             <div key={idx} className="block">
                                 <div className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'} mb-1`}>
                                     <div className="block">
-                                        <div className={`block rounded-[10px] px-4 py-2 ${msg.type === 'user' ? 'bg-[#36322F] text-white ml-auto max-w-[80%]' :
+                                        <div className={`block rounded-[10px] px-4 py-2 ${msg.type === 'user' ? 'bg-orange-800 text-white ml-auto max-w-[80%]' :
                                                 msg.type === 'ai' ? 'bg-gray-100 text-gray-900 mr-auto max-w-[80%]' :
-                                                    msg.type === 'system' ? 'bg-[#36322F] text-white text-sm' :
-                                                        msg.type === 'command' ? 'bg-[#36322F] text-white font-mono text-sm' :
+                                                    msg.type === 'system' ? 'bg-orange-800 text-white text-sm' :
+                                                        msg.type === 'command' ? 'bg-orange-800 text-white font-mono text-sm' :
                                                             msg.type === 'error' ? 'bg-red-900 text-red-100 text-sm border border-red-700' :
-                                                                'bg-[#36322F] text-white text-sm'
+                                                                'bg-orange-800 text-white text-sm'
                                             }`}>
                                             {msg.type === 'command' ? (
                                                 <div className="flex items-start gap-2">
@@ -1623,7 +1642,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                                         return (
                                                             <div
                                                                 key={`applied-${fileIdx}`}
-                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-[#36322F] text-white rounded-[10px] text-xs animate-fade-in-up"
+                                                                className="inline-flex items-center gap-1 px-2 py-1 bg-orange-800 text-white rounded-[10px] text-xs animate-fade-in-up"
                                                                 style={{ animationDelay: `${fileIdx * 30}ms` }}
                                                             >
                                                                 <span className={`inline-block w-1.5 h-1.5 rounded-full ${fileExt === 'css' ? 'bg-blue-400' :
@@ -1647,7 +1666,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                                     {generationProgress.files.map((file, fileIdx) => (
                                                         <div
                                                             key={`complete-${fileIdx}`}
-                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-[#36322F] text-white rounded-[10px] text-xs animate-fade-in-up"
+                                                            className="inline-flex items-center gap-1 px-2 py-1 bg-orange-800 text-white rounded-[10px] text-xs animate-fade-in-up"
                                                             style={{ animationDelay: `${fileIdx * 30}ms` }}
                                                         >
                                                             <span className={`inline-block w-1.5 h-1.5 rounded-full ${file.type === 'css' ? 'bg-blue-400' :
@@ -1682,7 +1701,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                     {generationProgress.files.map((file, idx) => (
                                         <div
                                             key={`file-${idx}`}
-                                            className="inline-flex items-center gap-1 px-2 py-1 bg-[#36322F] text-white rounded-[10px] text-xs animate-fade-in-up"
+                                            className="inline-flex items-center gap-1 px-2 py-1 bg-orange-800 text-white rounded-[10px] text-xs animate-fade-in-up"
                                             style={{ animationDelay: `${idx * 30}ms` }}
                                         >
                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1694,7 +1713,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
 
                                     {/* Show current file being generated */}
                                     {generationProgress.currentFile && (
-                                        <div className="flex items-center gap-1 px-2 py-1 bg-[#36322F]/70 text-white rounded-[10px] text-xs animate-pulse"
+                                        <div className="flex items-center gap-1 px-2 py-1 bg-orange-800/70 text-white rounded-[10px] text-xs animate-pulse"
                                             style={{ animationDelay: `${generationProgress.files.length * 30}ms` }}>
                                             <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                             {generationProgress.currentFile.path.split('/').pop()}
@@ -1771,11 +1790,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             />
                             <button
                                 onClick={promptCount === 0 ? finishChallenge : sendChatMessage}
-                                disabled={promptCount === 0 && challengeCompleted}
+                                // SINI LOL
+                                disabled={(promptCount === 0 && challengeCompleted) || (promptCount === 0 && !aiEnabled) || (loading)}
                                 className={`absolute right-2 bottom-2 p-2 text-white rounded-[10px] [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] transition-all duration-200 ${
                                     promptCount === 0
                                         ? 'bg-green-600 hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed'
-                                        : 'bg-[#36322F] hover:bg-[#4a4542]'
+                                        : 'bg-orange-800 hover:bg-[#4a4542]'
                                 }`}
                                 title={promptCount === 0 ? "Finish Challenge" : "Send message (Enter)"}
                             >
@@ -1803,7 +1823,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <div className="px-4 py-2 bg-card border-b border-border flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <div className="flex bg-[#36322F] rounded-lg p-1">
+                            <div className="flex bg-orange-800 rounded-lg p-1">
                                 <button
                                     onClick={() => setActiveTab('generation')}
                                     className={`p-2 rounded-md transition-all ${activeTab === 'generation'
@@ -1840,7 +1860,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                             {generationProgress.files.length} files generated
                                         </div>
                                     )}
-                                    <div className={`inline-flex items-center justify-center whitespace-nowrap rounded-[10px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#36322F] text-white hover:bg-[#36322F] [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100 h-8 px-3 py-1 text-sm gap-2`}>
+                                    <div className={`inline-flex items-center justify-center whitespace-nowrap rounded-[10px] font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-orange-800 text-white hover:bg-orange-800 [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100 h-8 px-3 py-1 text-sm gap-2`}>
                                         {generationProgress.isGenerating ? (
                                             <>
                                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />

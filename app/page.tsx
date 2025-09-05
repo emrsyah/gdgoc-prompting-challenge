@@ -1,16 +1,25 @@
 "use client"
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { useQueryState } from 'nuqs'
 import { useRouter } from 'next/navigation'
+import { CardStorage } from '@/lib/card-storage'
+import { Card } from '@/types/card'
 
 const Page = () => {
   const router = useRouter()
   const [selectedCardId, setSelectedCardId] = useQueryState('selectedImage')
   const [username, setUsername] = useQueryState('username')
   const [selectedFaculty, setSelectedFaculty] = useQueryState('selectedFaculty')
+  const [cards, setCards] = useState<Card[]>([])
 
   const selectedCardIdNumber = selectedCardId ? parseInt(selectedCardId) : null
+
+  // Initialize cards from localStorage on component mount
+  useEffect(() => {
+    const initializedCards = CardStorage.initializeDefaultCards()
+    setCards(initializedCards)
+  }, [])
 
   const faculties = [
     { name: "Fakultas Informatika", color: "bg-yellow-50 border-yellow-200 text-yellow-800" },
@@ -31,29 +40,31 @@ const Page = () => {
     return 'bg-red-500'
   }
 
-  // Generate 12 demo cards and cycle through faculties as owners
-  const cards = Array.from({ length: 12 }, (_, index) => {
-    const faculty = faculties[index % faculties.length]
-    return {
-      id: index + 1,
-      image: `/images/image-${index + 1}.png`,
-      // image: `/images/image.png`,
-      ownerFaculty: faculty.name,
-      score: Math.floor(Math.random() * 101) // score 0-100
-    }
-  })
-
-  // Build a leaderboard based on how many cards each faculty owns
+  // Build a leaderboard based on best scores achieved by each faculty
   const leaderboard = faculties
     .map((faculty) => {
-      const ownedCount = cards.filter((c) => c.ownerFaculty === faculty.name).length
+      const facultyBestScores = cards
+        .filter((card) => card.best?.faculty === faculty.name)
+        .map((card) => card.best!.score)
+
+      const averageScore = facultyBestScores.length > 0
+        ? Math.round(facultyBestScores.reduce((sum, score) => sum + score, 0) / facultyBestScores.length)
+        : 0
+
       return {
         faculty: faculty.name,
-        count: ownedCount,
+        count: facultyBestScores.length,
+        averageScore,
         color: faculty.color
       }
     })
-    .sort((a, b) => b.count - a.count)
+    .sort((a, b) => {
+      // Sort by average score first, then by count
+      if (b.averageScore !== a.averageScore) {
+        return b.averageScore - a.averageScore
+      }
+      return b.count - a.count
+    })
     .map((entry, idx) => ({ ...entry, rank: idx + 1 }))
 
   return (
@@ -93,25 +104,37 @@ const Page = () => {
 
                   {/* Card Content */}
                   <div className="p-3 space-y-1">
-                    <h3 className="text-base font-semibold text-gray-800 font-pixelify">Items {card.id}</h3>
-                    <div className="flex items-center justify-between text-sm font-pixelify">
-                      <span className="text-gray-600">Faculty:</span>
-                      <span
-                        className={`font-medium px-2 py-0.5 rounded border ${faculties.find((f) => f.name === card.ownerFaculty)?.color}`}
-                      >
-                        {card.ownerFaculty}
-                      </span>
-                    </div>
-                    {/* Score Bar */}
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-1">
-                        <div
-                          className={`h-1 rounded-full ${scoreBarColor(card.score)}`}
-                          style={{ width: `${card.score}%` }}
-                        />
+                    <h3 className="text-base font-semibold text-gray-800 font-pixelify">{card.name}</h3>
+                    {card.best ? (
+                      <>
+                        <div className="flex items-center justify-between text-sm font-pixelify">
+                          <span className="text-gray-600">Best:</span>
+                          <span className="font-medium text-gray-800">{card.best.name}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm font-pixelify">
+                          <span className="text-gray-600">Faculty:</span>
+                          <span
+                            className={`font-medium px-2 py-0.5 rounded border ${faculties.find((f) => f.name === card.best!.faculty)?.color}`}
+                          >
+                            {card.best.faculty}
+                          </span>
+                        </div>
+                        {/* Score Bar */}
+                        <div className="mt-2">
+                          <div className="w-full bg-gray-200 rounded-full h-1">
+                            <div
+                              className={`h-1 rounded-full ${scoreBarColor(card.best.score)}`}
+                              style={{ width: `${card.best.score}%` }}
+                            />
+                          </div>
+                          <div className="text-right text-[10px] text-gray-500 mt-1">{card.best.score}/100</div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-sm text-gray-500 font-pixelify mt-2">
+                        No one has taken this challenge yet!
                       </div>
-                      <div className="text-right text-[10px] text-gray-500 mt-1">{card.score}/100</div>
-                    </div>
+                    )}
                   </div>
                 </button>
               ))}
@@ -132,7 +155,12 @@ const Page = () => {
                     </div>
                     <span className={`text-sm font-medium ${entry.color}`}>{entry.faculty}</span>
                   </div>
-                  <span className="text-sm font-semibold text-gray-800">{entry.count} cards</span>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-gray-800">{entry.count} cards</div>
+                    {entry.averageScore > 0 && (
+                      <div className="text-xs text-gray-500">{entry.averageScore}/100 avg</div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -145,13 +173,15 @@ const Page = () => {
               className="mt-6 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#4285F4]"
             />
             <select
-            
+
               value={selectedFaculty || ''}
               onChange={(e) => {
                 const newFaculty = e.target.value;
-                setSelectedFaculty(newFaculty);
+                setSelectedFaculty(newFaculty || null);
                 const params = new URLSearchParams();
-                params.set('selectedFaculty', newFaculty);
+                if (newFaculty) {
+                  params.set('selectedFaculty', newFaculty);
+                }
                 if (sandboxData?.sandboxId) {
                   params.set('sandbox', sandboxData.sandboxId);
                 }
@@ -159,10 +189,10 @@ const Page = () => {
               }}
               className="px-3 py-1.5 text-sm w-full mt-3 bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
             >
+              <option value="">Select your faculty...</option>
               {faculties.map(faculty => (
                 <option key={faculty.name} value={faculty.name}>
                   {faculty.name}
-                  {/* {appConfig.ai.modelDisplayNames[model] || model`} */}
                 </option>
               ))}
             </select>
@@ -177,7 +207,7 @@ const Page = () => {
                 if (selectedFaculty) params.set('selectedFaculty', selectedFaculty)
                 router.push(`/sandbox?${params.toString()}`)
               }}
-              className={`mt-4 w-full py-2 rounded-md font-semibold text-white transition-colors
+              className={`mt-4 w-full cursor-pointer py-2 rounded-md font-semibold text-white transition-colors
                 ${selectedCardId === null || username?.trim() === '' || !selectedFaculty ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#4285F4] hover:bg-[#357AE8] shadow-md'}
                 `}
             >

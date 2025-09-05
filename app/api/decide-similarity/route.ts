@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const generatedBase64 = Buffer.from(generatedBuffer).toString('base64');
 
     // Use Gemini to analyze similarity
-    const model = googleGenerativeAI('gemini-1.5-flash');
+    const model = googleGenerativeAI('gemini-2.5-flash');
 
     const prompt = `Compare these two images and provide a similarity score from 0 to 100, where:
 - 100 means the images are identical or nearly identical
