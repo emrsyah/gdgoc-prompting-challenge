@@ -138,6 +138,10 @@
   --radius: 0.5rem;
 }
 
+.font-pixelify {
+  font-family: "Pixelify Sans", sans-serif;
+}
+
 /* Dark theme overrides */
 .dark {
   --color-background: hsl(240 10% 3.9%);

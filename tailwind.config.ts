@@ -58,6 +58,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
+        pixelify: ["var(--font-pixelify)", "cursive"],
         mono: ["ui-monospace", "SFMono-Regular", "monospace"],
       },
     },
