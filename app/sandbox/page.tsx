@@ -28,6 +28,42 @@ interface SandboxData {
     [key: string]: any;
 }
 
+// Animated score counter component with ease-out animation
+const AnimatedScore: React.FC<{ targetScore: number; duration?: number }> = ({
+    targetScore,
+    duration = 3000
+}) => {
+    const [currentScore, setCurrentScore] = useState(0);
+    const [hasAnimated, setHasAnimated] = useState(false);
+
+    useEffect(() => {
+        if (targetScore > 0 && !hasAnimated) {
+            setHasAnimated(true);
+            const startTime = Date.now();
+            const startScore = 0;
+
+            const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Ease-out function: starts fast, slows down
+                const easeOutProgress = 1 - Math.pow(1 - progress, 4);
+
+                const currentValue = Math.floor(startScore + (targetScore - startScore) * easeOutProgress);
+                setCurrentScore(currentValue);
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            };
+
+            requestAnimationFrame(animate);
+        }
+    }, [targetScore, duration, hasAnimated]);
+
+    return <span>{currentScore}/100</span>;
+};
+
 interface ChatMessage {
     content: string;
     type: 'user' | 'ai' | 'system' | 'file-update' | 'command' | 'error';
@@ -47,7 +83,7 @@ const GAME_TIPS = [
     'Think buttons, cards, and layouts'
 ]
 
-const MAX_PROMPT_COUNT = 3;
+const MAX_PROMPT_COUNT = 2;
 
 export default function SandboxPage() {
     const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
@@ -56,6 +92,7 @@ export default function SandboxPage() {
     const [responseArea, setResponseArea] = useState<string[]>([]);
     const [structureContent, setStructureContent] = useState('No sandbox created yet');
     const [promptInput, setPromptInput] = useState('');
+    const [currentTipIndex, setCurrentTipIndex] = useState(0);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
         {
             content: 'Welcome  to the GDGoC Prompting Challenge! Create the duplication of the selected image in 5 prompt or less and let AI decide how similar it is to the original image.',
@@ -105,6 +142,59 @@ export default function SandboxPage() {
     const [codeApplicationState, setCodeApplicationState] = useState<CodeApplicationState>({
         stage: null
     });
+
+    const [backgroundMusic, setBackgroundMusic] = useState<HTMLAudioElement | null>(null);
+
+    // Initialize background music
+    useEffect(() => {
+        const audio = new Audio('/audio/background-music.mp3'); // You'll need to add this audio file
+        audio.loop = true;
+        audio.volume = 0.3; // Set volume to 30%
+        setBackgroundMusic(audio);
+
+        // Cleanup on unmount
+        return () => {
+            if (audio) {
+                audio.pause();
+                audio.src = '';
+            }
+        };
+    }, []);
+
+    // Cycle through game tips
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentTipIndex((prevIndex) => (prevIndex + 1) % GAME_TIPS.length);
+        }, 3000); // Change tip every 3 seconds
+
+        return () => clearInterval(interval);
+    }, []);
+
+    // Play background music when user starts interacting
+    useEffect(() => {
+        if (backgroundMusic && (chatMessages.length > 1 || generationProgress.isGenerating)) {
+            const playMusic = () => {
+                backgroundMusic.play().catch(error => {
+                    console.log('Audio autoplay blocked:', error);
+                });
+            };
+
+            // Try to play immediately
+            playMusic();
+
+            // Also add a click listener to ensure music plays on user interaction
+            const handleUserInteraction = () => {
+                playMusic();
+                document.removeEventListener('click', handleUserInteraction);
+            };
+
+            document.addEventListener('click', handleUserInteraction);
+
+            return () => {
+                document.removeEventListener('click', handleUserInteraction);
+            };
+        }
+    }, [backgroundMusic, chatMessages.length]);
 
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
@@ -699,7 +789,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         }
                     );
 
-                    if (previousCard === null) {
+                    if (previousCard?.best?.score === null) {
                         setTimeout(() => {
                         setJudgingStatus('completed-first-own');
                         }, 500);
@@ -1466,13 +1556,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                 {loadingStage === 'gathering' && 'Gathering website information...'}
                                 {loadingStage === 'planning' && 'Planning your design...'}
                                 {loadingStage === 'judging' && 'Judging your application...'}
-                                {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Generating your application...'}
+                                {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Generating your UI...'}
                             </h3>
                             <p className="text-gray-600 text-sm">
                                 {loadingStage === 'gathering' && 'Analyzing the website structure and content'}
                                 {loadingStage === 'planning' && 'Creating the optimal React component architecture'}
                                 {loadingStage === 'judging' && 'Our AI would judge the similarity of your application to the original image'}
-                                {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Writing clean, modern code for your app'}
+                                {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Vibing your application based on your prompt'}
                             </p>
                         </div>
                     </div>
@@ -1535,33 +1625,82 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         return null;
     };
 
-    
+    const restartGame = () => {
+        createSandbox();
+        setJudgingStatus(null);
+        setGeneratedImage(null);
+        setPreviousCard(null);
+        setSimilarityScore(null);
+        setChatMessages([]);
+        setAiChatInput('');
+        setPromptInput('');
+        setPromptCount(MAX_PROMPT_COUNT);
+        setGenerationProgress({
+            isGenerating: false,
+            status: '',
+            components: [],
+            currentComponent: 0,
+            streamedCode: '',
+            isStreaming: false,
+            isThinking: false,
+            thinkingText: undefined,
+            thinkingDuration: undefined,
+            files: [],
+            currentFile: undefined,
+            lastProcessedPosition: 0
+        });
+    }
 
     return (
         <div className="font-sans bg-background text-foreground h-screen flex flex-col">
             {/* Loading Background */}
             {showLoadingBackground && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                    <div className="bg-white rounded-lg p-6 shadow-xl max-w-2xl w-full ">
-                        <div className="flex items-center gap-3">
-                            <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                            <span className="text-gray-700 text-2xl">Setting up your sandbox...</span>
+                <div className="fixed inset-0 z-50 font-pixelify bg-black/10 backdrop-blur-lg flex items-center justify-center p-4">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-2xl p-8 shadow-2xl max-w-3xl w-full border border-white/20">
+                        <div className="text-center mb-6">
+                            <div className="relative mx-auto w-16 h-16 mb-4">
+                                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-orange-400 to-orange-600 animate-pulse"></div>
+                                <div className="absolute inset-2 rounded-full bg-white flex items-center justify-center">
+                                    <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            </div>
+                            <h2 className="text-3xl font-bold  bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-2">
+                                Setting up your sandbox...
+                            </h2>
+                            <p className="text-gray-600">GDGoC Prompting Challenge</p>
                         </div>
-                        <div className="text-gray-700 text-lg mt-4">
+                        
+                        <div className="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-xl p-6 border border-orange-200">
                             <AnimatePresence mode="wait">
                                 <motion.div
-                                    key={Math.floor(Date.now() / 3000) % GAME_TIPS.length}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    transition={{ duration: 0.5 }}
-                                    className="flex items-center gap-2"
+                                    key={currentTipIndex}
+                                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                    className="text-center"
                                 >
-                                    <span className="text-gray-700 text-lg">
-                                        💡 {GAME_TIPS[Math.floor(Date.now() / 3000) % GAME_TIPS.length]}
-                                    </span>
+                                    <div className="text-2xl mb-2">💡</div>
+                                    <p className="text-gray-700 text-lg font-medium leading-relaxed">
+                                        {GAME_TIPS[currentTipIndex]}
+                                    </p>
                                 </motion.div>
                             </AnimatePresence>
+                        </div>
+                        
+                        <div className="mt-6 flex justify-center">
+                            <div className="flex space-x-1">
+                                {GAME_TIPS.map((_, index) => (
+                                    <div
+                                        key={index}
+                                        className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                            index === currentTipIndex 
+                                                ? 'bg-orange-500 w-6' 
+                                                : 'bg-gray-300'
+                                        }`}
+                                    />
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1680,7 +1819,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                             {judgingStatus === 'completed-first-own' && (
                                                 <div>
                                                     <div className="mb-4">
-                                                        <div className="text-4xl font-bold text-blue-600 mb-2">{similarityScore}/100</div>
+                                                        <div className="text-4xl font-bold text-blue-600 mb-2"><AnimatedScore targetScore={similarityScore || 0} /></div>
                                                         <div className="flex items-center justify-center gap-2 text-blue-700">
                                                             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                                                                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
@@ -1695,7 +1834,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                             {judgingStatus === 'completed-higher-score' && (
                                                 <div>
                                                     <div className="mb-4">
-                                                        <div className="text-4xl font-bold text-green-600 mb-2">{similarityScore}/100</div>
+                                                        <div className="text-4xl font-bold text-green-600 mb-2"><AnimatedScore targetScore={similarityScore || 0} /></div>
                                                         <div className="flex items-center justify-center gap-2 text-green-700">
                                                             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                                                                 <path d="M7 14l3-3 3 3 5-5-1.5-1.5L12 12l-1.5-1.5L7 14z"/>
@@ -1711,7 +1850,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                                             {judgingStatus === 'completed-lower-score' && (
                                                 <div>
                                                     <div className="mb-4">
-                                                        <div className="text-4xl font-bold text-orange-600 mb-2">{similarityScore}/100</div>
+                                                        <div className="text-4xl font-bold text-orange-600 mb-2"><AnimatedScore targetScore={similarityScore || 0} /></div>
                                                         <div className="flex items-center justify-center gap-2 text-orange-700">
                                                             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                                                                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
@@ -1774,16 +1913,17 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
-                    {/* <Button
-            variant="code"
-            onClick={() => createSandbox()}
-            size="sm"
-            title="Create new sandbox"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </Button> */}
+                    <button
+                        onClick={restartGame}
+                        disabled={loading}
+                        className="inline-flex font-pixelify items-center gap-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-500 text-white px-3 py-1.5 rounded-[10px] text-sm font-medium [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] transition-all duration-200 disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100 disabled:cursor-not-allowed"
+                        title="Restart sandbox session"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Restart
+                    </button>
                     <div className="inline-flex font-pixelify items-center gap-2 bg-orange-800 text-white px-3 py-1.5 rounded-[10px] text-sm font-medium [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)]">
                         <span id="status-text">{status.text}</span>
                         <div className={`w-2 h-2 rounded-full ${status.active ? 'bg-green-500' : 'bg-gray-500'}`} />

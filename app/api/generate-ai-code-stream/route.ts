@@ -570,6 +570,14 @@ ${conversationContext}
    - New component = 2 files MAX (component + parent)
    - If >3 files, YOU'RE DOING TOO MUCH
 
+🚨 ABSOLUTELY FORBIDDEN - NEVER USE MARKDOWN CODE BLOCKS:
+- ❌ NEVER use triple backticks: \`\`\`css, \`\`\`jsx, \`\`\`javascript
+- ❌ NEVER use single backticks for code blocks
+- ❌ NEVER wrap any code in markdown code fences
+- ✅ ONLY use the XML format: <file path="...">code content</file>
+- ✅ ONLY output plain code without any markdown formatting
+- ✅ NEVER include language identifiers like "jsx" or "css" before code
+
 COMPONENT RELATIONSHIPS (CHECK THESE FIRST):
 - Navigation usually lives INSIDE Header.jsx, not separate Nav.jsx
 - Logo is typically in Header, not standalone

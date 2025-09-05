@@ -59,11 +59,11 @@ const Page = () => {
       }
     })
     .sort((a, b) => {
-      // Sort by average score first, then by count
-      if (b.averageScore !== a.averageScore) {
-        return b.averageScore - a.averageScore
+      // Sort by count first (how many cards conquered), then by average score
+      if (b.count !== a.count) {
+        return b.count - a.count
       }
-      return b.count - a.count
+      return b.averageScore - a.averageScore
     })
     .map((entry, idx) => ({ ...entry, rank: idx + 1 }))
 
@@ -170,7 +170,7 @@ const Page = () => {
               value={username || ""}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Enter your name"
-              className="mt-6 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#4285F4]"
+              className="mt-6 w-full px-3 py-2 border bg-white rounded-md focus:outline-none focus:ring-2 focus:ring-[#4285F4]"
             />
             <select
 
@@ -208,7 +208,7 @@ const Page = () => {
                 router.push(`/sandbox?${params.toString()}`)
               }}
               className={`mt-4 w-full cursor-pointer py-2 rounded-md font-semibold text-white transition-colors
-                ${selectedCardId === null || username?.trim() === '' || !selectedFaculty ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#4285F4] hover:bg-[#357AE8] shadow-md'}
+                ${selectedCardId === null || username?.trim() === '' || !selectedFaculty ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#4285F4] hover:bg-blue-600 shadow-md'}
                 `}
             >
               Play Now!

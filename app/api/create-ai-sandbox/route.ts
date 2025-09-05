@@ -178,7 +178,7 @@ app_jsx = """function App() {
       <div className="text-center max-w-2xl">
         <p className="text-lg text-gray-400">
           Sandbox Ready<br/>
-          Start building your React app with Vite and Tailwind CSS!
+          Start prompting your image!
         </p>
       </div>
     </div>
