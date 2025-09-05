@@ -20,6 +20,7 @@
     "@ai-sdk/openai": "^2.0.4",
     "@anthropic-ai/sdk": "^0.57.0",
     "@e2b/code-interpreter": "^1.5.1",
+    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.5",
     "@types/react-syntax-highlighter": "^15.5.13",

@@ -8,8 +8,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const pixelify = Pixelify_Sans({ subsets: ["latin"], variable: "--font-pixelify" });
 
 export const metadata: Metadata = {
-  title: "Open Lovable",
-  description: "Re-imagine any website in seconds with AI-powered website builder.",
+  title: "GDGoC Prompting Challenge",
+  description: "GDGoC Prompting Challenge - Prompt Your Way to the Top",
 };
 
 export default function RootLayout({

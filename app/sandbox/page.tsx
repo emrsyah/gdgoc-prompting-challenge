@@ -37,6 +37,8 @@ interface ChatMessage {
     };
 }
 
+const MAX_PROMPT_COUNT = 1;
+
 export default function SandboxPage() {
     const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
     const [loading, setLoading] = useState(false);
@@ -55,12 +57,15 @@ export default function SandboxPage() {
     const [aiEnabled] = useState(true);
     const searchParams = useSearchParams();
     const router = useRouter();
+    const [promptCount, setPromptCount] = useState(MAX_PROMPT_COUNT);
     const [aiModel] = useState('google/gemini-2.5-pro');
     const [selectedFile, setSelectedFile] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<'generation' | 'preview'>('preview');
     const [showLoadingBackground, setShowLoadingBackground] = useState(false);
     const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
     const [loadingStage, setLoadingStage] = useState<'gathering' | 'planning' | 'generating' | null>(null);
+    const [challengeCompleted, setChallengeCompleted] = useState(false);
+    const [similarityScore, setSimilarityScore] = useState<number | null>(null);
 
     const [selectedCardId, setSelectedCardId] = useQueryState('selectedImage')
     const [username, setUsername] = useQueryState('username')
@@ -638,9 +643,97 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         await applyGeneratedCode(code, isEdit);
     };
 
+    const finishChallenge = async () => {
+        if (!sandboxData?.url) {
+            addChatMessage('No sandbox available to capture.', 'system');
+            return;
+        }
+
+        setIsCapturingScreenshot(true);
+        setLoadingStage('gathering');
+        addChatMessage('🎯 Finishing challenge - capturing your creation...', 'system');
+
+        try {
+            // Step 1: Capture screenshot of the generated sandbox
+            const screenshotResponse = await fetch('/api/scrape-screenshot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: sandboxData.url })
+            });
+
+            if (!screenshotResponse.ok) {
+                throw new Error('Failed to capture screenshot');
+            }
+
+            const screenshotData = await screenshotResponse.json();
+
+            if (!screenshotData.success || !screenshotData.screenshot) {
+                throw new Error('Screenshot capture failed');
+            }
+
+            // Step 2: Get the original image
+            const originalImageResponse = await fetch(`/images/image-${selectedCardId}.png`);
+            if (!originalImageResponse.ok) {
+                throw new Error('Failed to load original image');
+            }
+
+            const originalImageBlob = await originalImageResponse.blob();
+
+            // Step 3: Convert screenshot to blob
+            const screenshotResponse2 = await fetch(screenshotData.screenshot);
+            const screenshotBlob = await screenshotResponse2.blob();
+
+            // Step 4: Compare images using decide-similarity API
+            const formData = new FormData();
+            formData.append('original', originalImageBlob, 'original.png');
+            formData.append('generated', screenshotBlob, 'generated.png');
+
+            const similarityResponse = await fetch('/api/decide-similarity', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!similarityResponse.ok) {
+                throw new Error('Failed to analyze similarity');
+            }
+
+            const similarityData = await similarityResponse.json();
+
+            // Step 5: Display results
+            setSimilarityScore(similarityData.score);
+            setChallengeCompleted(true);
+
+            addChatMessage(`🎉 Challenge Complete! Your similarity score is: **${similarityData.score}/100**`, 'system');
+
+            if (similarityData.score >= 90) {
+                addChatMessage('🌟 Excellent work! Your recreation is nearly identical to the original!', 'system');
+            } else if (similarityData.score >= 70) {
+                addChatMessage('💪 Great job! Your recreation captures most of the original design!', 'system');
+            } else if (similarityData.score >= 50) {
+                addChatMessage('👍 Good effort! There\'s room for improvement in the details.', 'system');
+            } else {
+                addChatMessage('🎯 Keep practicing! Try focusing on the key visual elements.', 'system');
+            }
+
+        } catch (error: any) {
+            console.error('Finish challenge error:', error);
+            addChatMessage(`❌ Failed to complete challenge: ${error.message}`, 'error');
+        } finally {
+            setIsCapturingScreenshot(false);
+            setLoadingStage(null);
+        }
+    };
+
     const sendChatMessage = async () => {
         const message = aiChatInput.trim();
         if (!message) return;
+
+        if (promptCount === 0) {
+            addChatMessage('No prompts left! Click "Finish Challenge" to see your score.', 'system');
+            return;
+        }
+
+        setPromptCount((prev) => prev - 1);
 
         if (!aiEnabled) {
             addChatMessage('AI is disabled. Please enable it first.', 'system');
@@ -1436,7 +1529,21 @@ Tip: I automatically detect and install npm packages from your code imports (lik
 
             <div className="bg-card px-4 py-4 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-lg font-semibold font-pixelify">Hello {username}! GDGoC Prompting Challenge</h1>
+                    <h1 className="text-lg font-semibold font-pixelify">Hello {username}! - Welcome to  GDGoC Prompting Challenge</h1>
+                    <span className={`text-sm px-3 py-1.5 rounded-[10px] text-white font-medium [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] ${
+                        challengeCompleted
+                            ? 'bg-green-600'
+                            : promptCount === 0
+                                ? 'bg-orange-600'
+                                : 'bg-[#36322F]'
+                    }`}>
+                        {challengeCompleted
+                            ? `Score: ${similarityScore || 0}/100`
+                            : promptCount === 0
+                                ? 'Ready to Finish!'
+                                : `Prompt Left: ${promptCount}`
+                        }
+                    </span>
                 </div>
                 <div className="flex items-center gap-2">
                     {/* <Button
@@ -1644,25 +1751,49 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         <div className="relative">
                             <Textarea
                                 className="min-h-[60px] pr-12 resize-y border-2 border-black focus:outline-none"
-                                placeholder="Describe what you want to build..."
+                                placeholder={
+                                    promptCount === 0
+                                        ? challengeCompleted
+                                            ? "🎉 Challenge completed! Your score: " + (similarityScore || 0) + "/100"
+                                            : "Click 'Finish Challenge' to see your similarity score!"
+                                        : "Describe what you want to build..."
+                                }
                                 value={aiChatInput}
                                 onChange={(e) => setAiChatInput(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                    if (e.key === 'Enter' && !e.shiftKey && promptCount > 0) {
                                         e.preventDefault();
                                         sendChatMessage();
                                     }
                                 }}
+                                disabled={challengeCompleted}
                                 rows={3}
                             />
                             <button
-                                onClick={sendChatMessage}
-                                className="absolute right-2 bottom-2 p-2 bg-[#36322F] text-white rounded-[10px] hover:bg-[#4a4542] [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] transition-all duration-200"
-                                title="Send message (Enter)"
+                                onClick={promptCount === 0 ? finishChallenge : sendChatMessage}
+                                disabled={promptCount === 0 && challengeCompleted}
+                                className={`absolute right-2 bottom-2 p-2 text-white rounded-[10px] [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] transition-all duration-200 ${
+                                    promptCount === 0
+                                        ? 'bg-green-600 hover:bg-green-700 disabled:bg-gray-500 disabled:cursor-not-allowed'
+                                        : 'bg-[#36322F] hover:bg-[#4a4542]'
+                                }`}
+                                title={promptCount === 0 ? "Finish Challenge" : "Send message (Enter)"}
                             >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                </svg>
+                                {promptCount === 0 ? (
+                                    challengeCompleted ? (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    ) : (
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    )
+                                ) : (
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                    </svg>
+                                )}
                             </button>
                         </div>
                     </div>

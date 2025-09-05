@@ -8,6 +8,7 @@ const Page = () => {
   const router = useRouter()
   const [selectedCardId, setSelectedCardId] = useQueryState('selectedImage')
   const [username, setUsername] = useQueryState('username')
+  const [selectedFaculty, setSelectedFaculty] = useQueryState('selectedFaculty')
 
   const selectedCardIdNumber = selectedCardId ? parseInt(selectedCardId) : null
 
@@ -62,7 +63,7 @@ const Page = () => {
         <h1 className="text-5xl font-pixelify font-bold text-center mb-12 text-yellow-500">
           GDGoC Prompting Challenge
         </h1>
-        
+
         {/* Content Row: Cards left & Leaderboard right */}
         <div className="flex flex-col lg:flex-row gap-8 mb-12">
           {/* Cards Grid */}
@@ -143,18 +144,41 @@ const Page = () => {
               placeholder="Enter your name"
               className="mt-6 w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#4285F4]"
             />
+            <select
+            
+              value={selectedFaculty || ''}
+              onChange={(e) => {
+                const newFaculty = e.target.value;
+                setSelectedFaculty(newFaculty);
+                const params = new URLSearchParams();
+                params.set('selectedFaculty', newFaculty);
+                if (sandboxData?.sandboxId) {
+                  params.set('sandbox', sandboxData.sandboxId);
+                }
+                router.push(`/?${params.toString()}`);
+              }}
+              className="px-3 py-1.5 text-sm w-full mt-3 bg-white border border-gray-300 rounded-[10px] focus:outline-none focus:ring-2 focus:ring-[#36322F] focus:border-transparent"
+            >
+              {faculties.map(faculty => (
+                <option key={faculty.name} value={faculty.name}>
+                  {faculty.name}
+                  {/* {appConfig.ai.modelDisplayNames[model] || model`} */}
+                </option>
+              ))}
+            </select>
 
             {/* Action button */}
             <button
-              disabled={selectedCardId === null || username?.trim() === ""}
+              disabled={selectedCardId === null || username?.trim() === "" || !selectedFaculty}
               onClick={() => {
                 const params = new URLSearchParams()
                 if (selectedCardId) params.set('selectedImage', selectedCardId)
                 if (username?.trim()) params.set('username', username.trim())
+                if (selectedFaculty) params.set('selectedFaculty', selectedFaculty)
                 router.push(`/sandbox?${params.toString()}`)
               }}
               className={`mt-4 w-full py-2 rounded-md font-semibold text-white transition-colors
-                ${selectedCardId === null || username?.trim() === '' ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#4285F4] hover:bg-[#357AE8] shadow-md'}
+                ${selectedCardId === null || username?.trim() === '' || !selectedFaculty ? 'bg-gray-300 cursor-not-allowed' : 'bg-[#4285F4] hover:bg-[#357AE8] shadow-md'}
                 `}
             >
               Play Now!
