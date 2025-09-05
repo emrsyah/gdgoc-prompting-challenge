@@ -20,6 +20,7 @@ import CodeApplicationProgress, { type CodeApplicationState } from '@/components
 import { useQueryState } from 'nuqs';
 import Image from 'next/image';
 import { CardStorage } from '@/lib/card-storage';
+import { Card } from '@/types/card';
 
 interface SandboxData {
     sandboxId: string;
@@ -38,7 +39,15 @@ interface ChatMessage {
     };
 }
 
-const MAX_PROMPT_COUNT = 1;
+const GAME_TIPS = [
+    'Be specific about colors and shapes',
+    'Describe the mood you want',
+    'Start simple, add details later',
+    'Use everyday words, not tech terms',
+    'Think buttons, cards, and layouts'
+]
+
+const MAX_PROMPT_COUNT = 3;
 
 export default function SandboxPage() {
     const [sandboxData, setSandboxData] = useState<SandboxData | null>(null);
@@ -64,12 +73,16 @@ export default function SandboxPage() {
     const [activeTab, setActiveTab] = useState<'generation' | 'preview'>('preview');
     const [showLoadingBackground, setShowLoadingBackground] = useState(false);
     const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
-    const [loadingStage, setLoadingStage] = useState<'gathering' | 'planning' | 'generating' | null>(null);
+    const [loadingStage, setLoadingStage] = useState<'gathering' | 'planning' | 'generating' | "judging" | null>(null);
     const [challengeCompleted, setChallengeCompleted] = useState(false);
     const [similarityScore, setSimilarityScore] = useState<number | null>(null);
 
     const [selectedCardId, setSelectedCardId] = useQueryState('selectedImage')
     const [username, setUsername] = useQueryState('username')
+
+    const [previousCard, setPreviousCard] = useState<Card | null>(null);
+    const [judgingStatus, setJudgingStatus] = useState<'submitting' | 'grading' | 'completed-bridging' | 'completed-first-own' | 'completed-higher-score' | 'completed-lower-score' | 'failed' | null>(null);
+    
 
     const [conversationContext, setConversationContext] = useState<{
         scrapedWebsites: Array<{ url: string; content: any; timestamp: Date }>;
@@ -92,6 +105,9 @@ export default function SandboxPage() {
     const [codeApplicationState, setCodeApplicationState] = useState<CodeApplicationState>({
         stage: null
     });
+
+    const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+
 
     const [generationProgress, setGenerationProgress] = useState<{
         isGenerating: boolean;
@@ -199,29 +215,6 @@ export default function SandboxPage() {
             }
             return [...prev, { content, type, timestamp: new Date(), metadata }];
         });
-    };
-
-    const checkSandboxStatus = async () => {
-        try {
-            const response = await fetch('/api/sandbox-status');
-            const data = await response.json();
-
-            if (data.active && data.healthy && data.sandboxData) {
-                setSandboxData(data.sandboxData);
-                updateStatus('Sandbox active', true);
-            } else if (data.active && !data.healthy) {
-                // Sandbox exists but not responding
-                updateStatus('Sandbox not responding', false);
-                // Optionally try to create a new one
-            } else {
-                setSandboxData(null);
-                updateStatus('No sandbox', false);
-            }
-        } catch (error) {
-            console.error('Failed to check sandbox status:', error);
-            setSandboxData(null);
-            updateStatus('Error', false);
-        }
     };
 
     const createSandbox = async (fromHomeScreen = false) => {
@@ -625,33 +618,16 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         }
     };
 
-    const applyCode = async () => {
-        const code = promptInput.trim();
-        if (!code) {
-            log('Please enter some code first', 'error');
-            addChatMessage('No code to apply. Please generate code first.', 'system');
-            return;
-        }
-
-        // Prevent double clicks
-        if (loading) {
-            console.log('[applyCode] Already loading, skipping...');
-            return;
-        }
-
-        // Determine if this is an edit based on whether we have applied code before
-        const isEdit = conversationContext.appliedCode.length > 0;
-        await applyGeneratedCode(code, isEdit);
-    };
-
     const finishChallenge = async () => {
         if (!sandboxData?.url) {
             addChatMessage('No sandbox available to capture.', 'system');
             return;
         }
+        setPreviousCard(selectedCardId ? CardStorage.getCardById(parseInt(selectedCardId)) : null);
 
         setIsCapturingScreenshot(true);
-        setLoadingStage('gathering');
+        setJudgingStatus('submitting');
+        setLoadingStage('judging');
         setLoading(true);
         addChatMessage('🎯 Finishing challenge - capturing your creation...', 'system');
 
@@ -673,6 +649,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                 throw new Error('Screenshot capture failed');
             }
 
+            setGeneratedImage(screenshotData.screenshot);
+
             // Step 2: Get the original image
             const originalImageResponse = await fetch(`/images/image-${selectedCardId}.png`);
             if (!originalImageResponse.ok) {
@@ -686,6 +664,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             const screenshotBlob = await screenshotResponse2.blob();
 
             // Step 4: Compare images using decide-similarity API
+
+            setJudgingStatus('grading');
             const formData = new FormData();
             formData.append('original', originalImageBlob, 'original.png');
             formData.append('generated', screenshotBlob, 'generated.png');
@@ -702,6 +682,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             const similarityData = await similarityResponse.json();
 
             // Step 5: Display results
+            setJudgingStatus('completed-bridging');
             setSimilarityScore(similarityData.score);
             setChallengeCompleted(true);
 
@@ -717,6 +698,20 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             score: similarityData.score
                         }
                     );
+
+                    if (previousCard === null) {
+                        setTimeout(() => {
+                        setJudgingStatus('completed-first-own');
+                        }, 500);
+                    } else if (previousCard?.best?.score && similarityData.score < previousCard.best.score) {
+                        setTimeout(() => {
+                            setJudgingStatus('completed-lower-score');
+                        }, 3000);
+                    } else {
+                        setTimeout(() => {
+                            setJudgingStatus('completed-higher-score');
+                        }, 3000);
+                    }
                 }
             }
 
@@ -1162,6 +1157,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         }
     };
 
+    const resetGame = () => {
+        router.push('/');
+    }
+
+
+
     const renderMainContent = () => {
         if (activeTab === 'generation' && (generationProgress.isGenerating || generationProgress.files.length > 0)) {
             return (
@@ -1464,11 +1465,13 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             <h3 className="text-xl font-semibold text-gray-800 mb-2">
                                 {loadingStage === 'gathering' && 'Gathering website information...'}
                                 {loadingStage === 'planning' && 'Planning your design...'}
+                                {loadingStage === 'judging' && 'Judging your application...'}
                                 {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Generating your application...'}
                             </h3>
                             <p className="text-gray-600 text-sm">
                                 {loadingStage === 'gathering' && 'Analyzing the website structure and content'}
                                 {loadingStage === 'planning' && 'Creating the optimal React component architecture'}
+                                {loadingStage === 'judging' && 'Our AI would judge the similarity of your application to the original image'}
                                 {(loadingStage === 'generating' || generationProgress.isGenerating) && 'Writing clean, modern code for your app'}
                             </p>
                         </div>
@@ -1532,19 +1535,225 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         return null;
     };
 
+    
+
     return (
         <div className="font-sans bg-background text-foreground h-screen flex flex-col">
             {/* Loading Background */}
             {showLoadingBackground && (
                 <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center">
-                    <div className="bg-white rounded-lg p-6 shadow-xl">
+                    <div className="bg-white rounded-lg p-6 shadow-xl max-w-2xl w-full ">
                         <div className="flex items-center gap-3">
                             <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
-                            <span className="text-gray-700">Setting up your sandbox...</span>
+                            <span className="text-gray-700 text-2xl">Setting up your sandbox...</span>
+                        </div>
+                        <div className="text-gray-700 text-lg mt-4">
+                            <AnimatePresence mode="wait">
+                                <motion.div
+                                    key={Math.floor(Date.now() / 3000) % GAME_TIPS.length}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.5 }}
+                                    className="flex items-center gap-2"
+                                >
+                                    <span className="text-gray-700 text-lg">
+                                        💡 {GAME_TIPS[Math.floor(Date.now() / 3000) % GAME_TIPS.length]}
+                                    </span>
+                                </motion.div>
+                            </AnimatePresence>
                         </div>
                     </div>
                 </div>
             )}
+
+            {
+                judgingStatus && (
+                    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6">
+                        <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-scroll">
+                            <div className="p-8">
+                                {/* Header */}
+                                <div className="text-center mb-8">
+                                    <h2 className="text-3xl font-bold text-gray-800 mb-2">Challenge Results</h2>
+                                    <p className="text-gray-600">Let's see how your creation compares to the original!</p>
+                                </div>
+
+                                {/* Image Comparison */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                    {/* Original Image */}
+                                    <div className="text-center">
+                                        <div className="bg-gray-50 rounded-xl p-6 border-2 border-gray-200">
+                                            <div className="relative w-full h-48 mb-4">
+                                                <Image 
+                                                    src={`/images/image-${selectedCardId}.png`} 
+                                                    alt="Original Image" 
+                                                    fill 
+                                                    className='object-contain rounded-lg' 
+                                                />
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-1">Original Design</h3>
+                                            <p className="text-sm text-gray-500">Target to recreate</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Generated/User Image */}
+                                    <div className="text-center">
+                                        <div className="bg-blue-50 rounded-xl p-6 border-2 border-blue-200">
+                                            <div className="relative w-full h-48 mb-4 bg-white rounded-lg border border-gray-200">
+                                                {/* Placeholder for generated image - you'll need to capture this */}
+                                                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                                                    <span className="text-sm">Your Creation</span>
+                                                </div>
+                                                {
+                                                    generatedImage && (
+                                                        <Image src={generatedImage} alt="Generated Image" fill className='object-contain' />
+                                                    )
+                                                }
+                                            </div>
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-1">Your Creation</h3>
+                                            <p className="text-sm text-gray-500">AI-generated result</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Previous Best Score Section */}
+                                {previousCard?.best && (
+                                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6">
+                                        <h4 className="text-lg font-semibold text-amber-800 mb-3">Previous Best Score</h4>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-2xl font-bold text-amber-700">{previousCard.best.score}/100</p>
+                                                <p className="text-sm text-amber-600">by {previousCard.best.name}</p>
+                                                <p className="text-xs text-amber-500">{previousCard.best.faculty}</p>
+                                            </div>
+                                            <div className="text-amber-600">
+                                                <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Status and Results */}
+                                <div className="text-center">
+                                    {judgingStatus === 'submitting' && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+                                            <div className="flex items-center justify-center gap-3 mb-3">
+                                                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                                                <span className="text-lg font-semibold text-blue-700">Submitting...</span>
+                                            </div>
+                                            <p className="text-sm text-blue-600">Capturing your creation...</p>
+                                        </div>
+                                    )}
+
+                                    {judgingStatus === 'grading' && (
+                                        <div className="bg-purple-50 border border-purple-200 rounded-xl p-6">
+                                            <div className="flex items-center justify-center gap-3 mb-3">
+                                                <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                                                <span className="text-lg font-semibold text-purple-700">AI is Analyzing...</span>
+                                            </div>
+                                            <p className="text-sm text-purple-600">Comparing your creation to the original...</p>
+                                        </div>
+                                    )}
+
+                                    {(judgingStatus === 'completed-bridging' || 
+                                      judgingStatus === 'completed-first-own' || 
+                                      judgingStatus === 'completed-higher-score' || 
+                                      judgingStatus === 'completed-lower-score') && (
+                                        <div className={`rounded-xl p-6 border-2 ${
+                                            similarityScore && similarityScore >= 90 
+                                                ? 'bg-green-50 border-green-200' 
+                                                : similarityScore && similarityScore >= 70 
+                                                    ? 'bg-blue-50 border-blue-200'
+                                                    : 'bg-orange-50 border-orange-200'
+                                        }`}>
+                                            {judgingStatus === 'completed-bridging' && (
+                                                <div>
+                                                    <div className="flex items-center justify-center gap-3 mb-3">
+                                                        <div className="w-6 h-6 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+                                                        <span className="text-lg font-semibold text-gray-700">Calculating final score...</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {judgingStatus === 'completed-first-own' && (
+                                                <div>
+                                                    <div className="mb-4">
+                                                        <div className="text-4xl font-bold text-blue-600 mb-2">{similarityScore}/100</div>
+                                                        <div className="flex items-center justify-center gap-2 text-blue-700">
+                                                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                                            </svg>
+                                                            <span className="text-lg font-semibold">First to Try!</span>
+                                                        </div>
+                                                        <p className="text-sm text-blue-600 mt-2">You're the first person to attempt this challenge!</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {judgingStatus === 'completed-higher-score' && (
+                                                <div>
+                                                    <div className="mb-4">
+                                                        <div className="text-4xl font-bold text-green-600 mb-2">{similarityScore}/100</div>
+                                                        <div className="flex items-center justify-center gap-2 text-green-700">
+                                                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M7 14l3-3 3 3 5-5-1.5-1.5L12 12l-1.5-1.5L7 14z"/>
+                                                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                                                            </svg>
+                                                            <span className="text-lg font-semibold">New High Score!</span>
+                                                        </div>
+                                                        <p className="text-sm text-green-600 mt-2">Congratulations! You beat the previous record!</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {judgingStatus === 'completed-lower-score' && (
+                                                <div>
+                                                    <div className="mb-4">
+                                                        <div className="text-4xl font-bold text-orange-600 mb-2">{similarityScore}/100</div>
+                                                        <div className="flex items-center justify-center gap-2 text-orange-700">
+                                                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                                            </svg>
+                                                            <span className="text-lg font-semibold">Good Effort!</span>
+                                                        </div>
+                                                        <p className="text-sm text-orange-600 mt-2">Keep practicing to beat the current high score!</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Score interpretation */}
+                                            {similarityScore !== null && (
+                                                <div className="mt-4 text-sm text-gray-600">
+                                                    {similarityScore >= 90 && "🌟 Excellent! Nearly identical to the original!"}
+                                                    {similarityScore >= 70 && similarityScore < 90 && "💪 Great job! Very close to the original design!"}
+                                                    {similarityScore >= 50 && similarityScore < 70 && "👍 Good effort! Getting there with more practice!"}
+                                                    {similarityScore < 50 && "🎯 Keep going! Focus on the key visual elements!"}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Close button - only show when completed */}
+                                {(judgingStatus === 'completed-first-own' || 
+                                  judgingStatus === 'completed-higher-score' || 
+                                  judgingStatus === 'completed-lower-score') && (
+                                    <div className="text-center mt-8">
+                                        <button
+                                            onClick={resetGame}
+                                            className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-lg font-semibold transition-colors duration-200"
+                                        >
+                                            Continue to Home
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
 
             <div className="bg-card px-4 py-4 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-4">
