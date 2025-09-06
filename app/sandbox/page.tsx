@@ -718,12 +718,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
             return;
         }
         const selectedFaculty = searchParams.get('selectedFaculty');
-        posthog.capture('finished_challenge', {
-            selectedCardId,
-            username,
-            selectedFaculty,
-            similarityScore
-        })
+
         setPreviousCard(selectedCardId ? CardStorage.getCardById(parseInt(selectedCardId)) : null);
 
         setIsCapturingScreenshot(true);
@@ -804,14 +799,35 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         setTimeout(() => {
                         setJudgingStatus('completed-first-own');
                         }, 500);
+                        posthog.capture('finished_challenge', {
+                            selectedCardId,
+                            username,
+                            selectedFaculty,
+                            similarityScore,
+                            type: 'first_own'
+                        })
                     } else if (previousCard?.best?.score && similarityData.score < previousCard.best.score) {
                         setTimeout(() => {
                             setJudgingStatus('completed-lower-score');
                         }, 3000);
+                        posthog.capture('finished_challenge', {
+                            selectedCardId,
+                            username,
+                            selectedFaculty,
+                            similarityScore,
+                            type: 'lower_score'
+                        })
                     } else {
                         setTimeout(() => {
                             setJudgingStatus('completed-higher-score');
                         }, 3000);
+                        posthog.capture('finished_challenge', {
+                            selectedCardId,
+                            username,
+                            selectedFaculty,
+                            similarityScore,
+                            type: 'higher_score'
+                        })
                     }
                 }
             }
