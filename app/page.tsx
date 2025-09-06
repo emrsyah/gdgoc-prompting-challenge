@@ -5,6 +5,7 @@ import { useQueryState } from 'nuqs'
 import { useRouter } from 'next/navigation'
 import { CardStorage } from '@/lib/card-storage'
 import { Card } from '@/types/card'
+import posthog from 'posthog-js'
 
 const Page = () => {
   const router = useRouter()
@@ -205,6 +206,11 @@ const Page = () => {
                 if (selectedCardId) params.set('selectedImage', selectedCardId)
                 if (username?.trim()) params.set('username', username.trim())
                 if (selectedFaculty) params.set('selectedFaculty', selectedFaculty)
+                posthog.capture('started_challenge', {
+                  selectedCardId,
+                  username,
+                  selectedFaculty
+                })
                 router.push(`/sandbox?${params.toString()}`)
               }}
               className={`mt-4 w-full cursor-pointer py-2 rounded-md font-semibold text-white transition-colors

@@ -48,18 +48,29 @@ export class CardStorage {
       "Fakultas Industri Terapan"
     ];
 
-    const defaultCards: Card[] = Array.from({ length: 12 }, (_, index) => ({
+    const defaultCards: Card[] = Array.from({ length: 20 }, (_, index) => ({
       id: index + 1,
       image: `/images/image-${index + 1}.png`,
       name: `Items ${index + 1}`,
       best: null
     }));
 
-    // Only initialize if no cards exist
     const existingCards = this.getCards();
+
+    // If no cards exist, initialize with defaults
     if (existingCards.length === 0) {
       this.saveCards(defaultCards);
       return defaultCards;
+    }
+
+    // Check if we need to add any missing cards (new images)
+    const maxExistingId = Math.max(...existingCards.map(card => card.id));
+    const missingCards = defaultCards.filter(card => card.id > maxExistingId);
+
+    if (missingCards.length > 0) {
+      const updatedCards = [...existingCards, ...missingCards];
+      this.saveCards(updatedCards);
+      return updatedCards;
     }
 
     return existingCards;

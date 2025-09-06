@@ -3,6 +3,7 @@ import { Inter, Pixelify_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/app/components/theme-provider";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { PostHogProvider } from "./providers";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const pixelify = Pixelify_Sans({ subsets: ["latin"], variable: "--font-pixelify" });
@@ -27,7 +28,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <NuqsAdapter>
-          {children}
+            <PostHogProvider>
+              {children}
+            </PostHogProvider>
           </NuqsAdapter>
         </ThemeProvider>
       </body>
