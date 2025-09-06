@@ -719,7 +719,8 @@ Tip: I automatically detect and install npm packages from your code imports (lik
         }
         const selectedFaculty = searchParams.get('selectedFaculty');
 
-        setPreviousCard(selectedCardId ? CardStorage.getCardById(parseInt(selectedCardId)) : null);
+        const previousCardLocal = selectedCardId ? CardStorage.getCardById(parseInt(selectedCardId)) : null;
+        setPreviousCard(previousCardLocal);
 
         setIsCapturingScreenshot(true);
         setJudgingStatus('submitting');
@@ -795,7 +796,9 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                         }
                     );
 
-                    if (previousCard?.best?.score === null) {
+                    console.log('previousCardLocal', previousCardLocal);
+
+                    if (previousCardLocal?.best?.score === null) {
                         setTimeout(() => {
                         setJudgingStatus('completed-first-own');
                         }, 500);
@@ -806,7 +809,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
                             similarityScore,
                             type: 'first_own'
                         })
-                    } else if (previousCard?.best?.score && similarityData.score < previousCard.best.score) {
+                    } else if (previousCardLocal?.best?.score && similarityData.score < previousCardLocal.best.score) {
                         setTimeout(() => {
                             setJudgingStatus('completed-lower-score');
                         }, 3000);

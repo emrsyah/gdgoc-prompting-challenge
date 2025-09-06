@@ -72,9 +72,12 @@ const Page = () => {
     <div className="min-h-screen bg-blue-50 py-8">
       <div className="container mx-auto px-4">
         {/* Title */}
-        <h1 className="text-5xl font-pixelify font-bold text-center mb-12 text-yellow-500">
+        <div className='text-center mb-12 flex flex-col gap-y-3'>
+        <h1 className="text-5xl font-pixelify font-bold text-center  text-yellow-500">
           GDGoC Prompting Challenge
         </h1>
+        <p className='text-green-600 text-2xl font-pixelify'>Prompt your way to victory!</p>
+        </div>
 
         {/* Content Row: Cards left & Leaderboard right */}
         <div className="flex flex-col lg:flex-row gap-8 mb-12">
