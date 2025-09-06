@@ -149,9 +149,11 @@ export default function SandboxPage() {
 
     const [backgroundMusic, setBackgroundMusic] = useState<HTMLAudioElement | null>(null);
 
+    const [startMusic, setStartMusic] = useState(false);
+
     // Initialize background music
     useEffect(() => {
-        const audio = new Audio('/audio/background-music.mp3'); // You'll need to add this audio file
+        const audio = new Audio('/audio/game-song.mp3'); // You'll need to add this audio file
         audio.loop = true;
         audio.volume = 0.3; // Set volume to 30%
         setBackgroundMusic(audio);
@@ -176,7 +178,7 @@ export default function SandboxPage() {
 
     // Play background music when user starts interacting
     useEffect(() => {
-        if (backgroundMusic && (chatMessages.length > 1 || generationProgress.isGenerating)) {
+        if (backgroundMusic && startMusic) {
             const playMusic = () => {
                 backgroundMusic.play().catch(error => {
                     console.log('Audio autoplay blocked:', error);
@@ -198,7 +200,7 @@ export default function SandboxPage() {
                 document.removeEventListener('click', handleUserInteraction);
             };
         }
-    }, [backgroundMusic, chatMessages.length]);
+    }, [backgroundMusic, startMusic]);
 
     const [generatedImage, setGeneratedImage] = useState<string | null>(null);
 
@@ -273,6 +275,7 @@ export default function SandboxPage() {
             } finally {
                 if (isMounted) {
                     setLoading(false);
+                    setStartMusic(true);
                 }
             }
         };
