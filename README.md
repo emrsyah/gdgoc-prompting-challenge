@@ -1,17 +1,22 @@
-# Open Lovable
+# GDG OC Prompt Challenge
 
-Chat with AI to build React apps instantly. An example app made by the [Firecrawl](https://firecrawl.dev/?ref=open-lovable-github) team. For a complete cloud solution, check out [Lovable.dev ❤️](https://lovable.dev/).
+A project for the Google Developer Groups On Campus (GDG OC) prompt challenge. This React application is an AI-powered image recreation game where players compete to generate the most accurate image based on prompts and beat previous high scores.
 
-<img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExbmZtaHFleGRsMTNlaWNydGdianI4NGQ4dHhyZjB0d2VkcjRyeXBucCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/ZFVLWMa6dVskQX0qu1/giphy.gif" alt="Open Lovable Demo" width="100%"/>
+## How to Play
 
+1. **Select a Picture**: Choose from available reference images to recreate
+2. **Enter Details**: Provide your name and faculty information
+3. **Follow the Prompt**: Use the generated prompt to create an image as close as possible to the original reference
+4. **Beat the Score**: Compete with other players by achieving higher accuracy scores and climb the leaderboard
 
+The goal is to create the most accurate recreation of the reference image using AI image generation tools, with scoring based on how closely your generated image matches the original.
 
 ## Setup
 
 1. **Clone & Install**
 ```bash
-git clone https://github.com/mendableai/open-lovable.git
-cd open-lovable
+git clone <your-repository-url>
+cd gdgoc-prompt-challenge
 npm install
 ```
 
