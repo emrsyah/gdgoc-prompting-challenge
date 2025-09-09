@@ -1,6 +1,6 @@
-# GDG OC Prompt Challenge
+# GDGoC Prompt Challenge
 
-A project for the Google Developer Groups On Campus (GDG OC) prompt challenge. This React application is an AI-powered image recreation game where players compete to generate the most accurate image based on prompts and beat previous high scores.
+A project for the Google Developer Groups On Campus (GDGoC) prompt challenge. This React application is an AI-powered image recreation game where players compete to generate the most accurate image based on prompts and beat previous high scores.
 
 ## How to Play
 
