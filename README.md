@@ -1,3 +1,5 @@
+<img width="1869" height="1006" alt="image" src="https://github.com/user-attachments/assets/09a1b802-3b31-457e-b908-bdb599ec7c3b" />
+
 # GDGoC Prompt Challenge
 
 A project for the Google Developer Groups On Campus (GDGoC) prompt challenge. This React application is an AI-powered image recreation game where players compete to generate the most accurate image based on prompts and beat previous high scores.
