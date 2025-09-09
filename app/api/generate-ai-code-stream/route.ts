@@ -583,10 +583,10 @@ ${conversationContext}
 - ✅ NEVER include language identifiers like "jsx" or "css" before code
 
 IMAGE DUPLICATION GAME RULES:
-- **ALWAYS DISPLAY IMAGES** - Every component should show the result image clearly
+- **CREATE UI WITH CODE** - Build UI elements using SVG, div, and other HTML elements instead of importing image files
 - **SIMPLE COMPONENT STRUCTURE** - Keep components focused and minimal
 - **MAIN APP INTEGRATION** - All components must be properly imported in App.jsx
-- **IMAGE HANDLING** - Use Next.js Image component or regular img tags appropriately
+- **NO IMAGE IMPORTS** - Use SVG elements, CSS shapes, divs, and HTML elements to recreate visual designs
 
 PACKAGE USAGE RULES:
 - Keep dependencies minimal for image duplication tasks
